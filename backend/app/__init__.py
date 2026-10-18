@@ -1,10 +1,11 @@
 
 import os
-from flask_cors import CORS
-from dotenv import load_dotenv
+
 from flask import Flask
+from flask_cors import CORS
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -15,15 +16,24 @@ migrate = Migrate()
 
 def create_app(test_config=None):
     app = Flask(__name__)
+
+    frontend_url = os.getenv(
+        "FRONTEND_URL",
+        "http://localhost:5173",
+    ).rstrip("/")
+
     CORS(
-    app,
-    resources={r"/api/*": {"origins": "http://localhost:5173"}},
+        app,
+        resources={r"/api/*": {"origins": frontend_url}},
     )
+
     app.config["SECRET_KEY"] = os.getenv(
-        "SECRET_KEY", "dev-only-change-this"
+        "SECRET_KEY",
+        "dev-only-change-this",
     )
     app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
-        "DATABASE_URL", "sqlite:///devtrack.db"
+        "DATABASE_URL",
+        "sqlite:///devtrack.db",
     )
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
@@ -42,4 +52,5 @@ def create_app(test_config=None):
 
     from app.routes.issues import issues_bp
     app.register_blueprint(issues_bp, url_prefix="/api")
+
     return app

@@ -1,7 +1,11 @@
+
 Flask
 Flask-SQLAlchemy
 Flask-Migrate
+Flask-Cors
 PyMySQL
 python-dotenv
 pytest
 scikit-learn
+sentence-transformers
+gunicorn
