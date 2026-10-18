@@ -1,5 +1,6 @@
 
-from sentence_transformers import SentenceTransformer
+import os
+
 from sklearn.metrics.pairwise import cosine_similarity
 
 from app.models import Issue
@@ -16,8 +17,11 @@ class SemanticDuplicateService:
 
     @classmethod
     def _get_model(cls):
-        """Load the model once and reuse it."""
+        """Load the semantic model once and reuse it."""
         if cls._model is None:
+            # Import the heavy library only when semantic mode is used.
+            from sentence_transformers import SentenceTransformer
+
             cls._model = SentenceTransformer(cls.MODEL_NAME)
         return cls._model
 
@@ -51,6 +55,22 @@ class SemanticDuplicateService:
         ):
             raise ValueError("Threshold must be between 0 and 1.")
 
+        # Lightweight mode is opt-in for memory-constrained deployments.
+        mode = os.getenv("SEMANTIC_DUPLICATES_MODE", "semantic").lower()
+
+        if mode == "tfidf":
+            matches = DuplicateIssueService.find_duplicates(
+                title=title,
+                description=description,
+                threshold=0.08,
+                exclude_issue_id=exclude_issue_id,
+            )
+
+            for match in matches:
+                match["method"] = "tfidf_fallback"
+
+            return matches
+
         candidates_query = Issue.query
 
         if exclude_issue_id is not None:
@@ -64,14 +84,12 @@ class SemanticDuplicateService:
             return []
 
         new_text = cls._build_issue_text(title, description)
-
         existing_texts = [
             cls._build_issue_text(issue.title, issue.description)
             for issue in candidates
         ]
 
         model = cls._get_model()
-
         embeddings = model.encode(
             [new_text, *existing_texts],
             normalize_embeddings=True,
@@ -89,12 +107,11 @@ class SemanticDuplicateService:
             similarity = float(score)
 
             if similarity >= threshold:
-                matches.append(
-                    {
-                        "issue": issue.to_dict(),
-                        "similarity": round(similarity, 4),
-                    }
-                )
+                matches.append({
+                    "issue": issue.to_dict(),
+                    "similarity": round(similarity, 4),
+                    "method": "semantic_similarity",
+                })
 
         matches.sort(
             key=lambda item: item["similarity"],

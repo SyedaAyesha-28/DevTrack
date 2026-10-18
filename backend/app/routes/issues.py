@@ -1,4 +1,6 @@
 
+import os
+
 from flask import Blueprint, jsonify, request
 
 from app.services.issue_service import IssueService
@@ -172,7 +174,7 @@ def check_semantic_duplicates():
 
     exclude_issue_id = data.get("exclude_issue_id")
 
-    # Validate threshold
+    # Validate threshold.
     if (
         isinstance(threshold, bool)
         or not isinstance(threshold, (int, float))
@@ -182,7 +184,7 @@ def check_semantic_duplicates():
             "error": "Threshold must be a number between 0 and 1."
         }), 400
 
-    # Validate optional issue ID to exclude
+    # Validate optional issue ID to exclude.
     if exclude_issue_id is not None:
         if (
             isinstance(exclude_issue_id, bool)
@@ -203,11 +205,22 @@ def check_semantic_duplicates():
             exclude_issue_id=exclude_issue_id,
         )
 
+        # Report the configured method accurately.
+        mode = os.getenv(
+            "SEMANTIC_DUPLICATES_MODE", "semantic"
+        ).lower()
+
+        method = (
+            "tfidf_fallback"
+            if mode == "tfidf"
+            else "semantic_similarity"
+        )
+
         return jsonify({
             "matches": matches,
             "count": len(matches),
             "threshold": float(threshold),
-            "method": "semantic_similarity",
+            "method": method,
         }), 200
 
     except ValueError as exc:
